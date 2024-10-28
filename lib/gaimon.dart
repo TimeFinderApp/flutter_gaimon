@@ -45,6 +45,18 @@ class Gaimon {
     }
   }
 
+  static Future<void> stopHaptics() async {
+    if (Platform.isIOS) {
+      await _channel.invokeMethod('stopHaptics');
+    }
+  }
+
+  static Future<void> restartHaptics() async {
+    if (Platform.isIOS) {
+      await _channel.invokeMethod('restartHaptics');
+    }
+  }
+
   // Existing methods for haptic feedback
   static void selection() => HapticFeedback.selectionClick();
   static void error() => _channel.invokeMethod('error');
