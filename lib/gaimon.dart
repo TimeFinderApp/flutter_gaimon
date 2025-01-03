@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 class Gaimon {
   static const MethodChannel _channel = MethodChannel('gaimon');
+  static String? _currentPatternKey;
 
   /// Check if the device supports haptic feedback
   static Future<bool> get canSupportsHaptic async {
@@ -21,16 +22,22 @@ class Gaimon {
   }
 
   /// Create and cache the haptic pattern player
-  static Future<void> createPlayer(String data) async {
+  static Future<void> createPlayer(String data, {String? patternKey}) async {
     if (Platform.isIOS) {
-      await _channel.invokeMethod('createPlayer', {'data': data});
+      final key = patternKey ?? 'default';
+      await _channel.invokeMethod('createPlayer', {
+        'data': data,
+        'patternKey': key,
+      });
+      _currentPatternKey = key;
     }
   }
 
   /// Play the cached haptic pattern
-  static Future<void> playPattern() async {
+  static Future<void> playPattern({String? patternKey}) async {
     if (Platform.isIOS) {
-      await _channel.invokeMethod('playPattern');
+      final key = patternKey ?? _currentPatternKey ?? 'default';
+      await _channel.invokeMethod('playPattern', {'patternKey': key});
     }
   }
 

@@ -4,7 +4,8 @@ import CoreHaptics
 @available(iOS 13.0, *)
 class HapticEngineManager: NSObject {
     private var engine: CHHapticEngine?
-    private var patternPlayer: CHHapticPatternPlayer?
+    private var patternPlayers: [String: CHHapticPatternPlayer] = [:]
+    private var currentPatternKey: String = "default"
 
     // Initialize the haptic engine once
     func prepareHaptics() {
@@ -42,17 +43,24 @@ class HapticEngineManager: NSObject {
         do {
             try engine.start()
             print("Haptic engine restarted successfully.")
+            // Recreate all pattern players after engine restart
+            recreatePatternPlayers()
         } catch {
             print("Failed to restart haptic engine: \(error.localizedDescription)")
         }
     }
 
+    // Store pattern data for recreation after engine restarts
+    private var patternData: [String: [CHHapticPattern.Key: Any]] = [:]
+
     // Preload and cache the haptic pattern player
-    func createPlayer(data: String, result: @escaping FlutterResult) {
+    func createPlayer(data: String, patternKey: String?, result: @escaping FlutterResult) {
         guard let engine = self.engine else {
             result(FlutterError(code: "engine_not_initialized", message: "Haptic engine is not initialized", details: nil))
             return
         }
+        
+        let key = patternKey ?? "default"
         
         // Convert the string data to a dictionary for CHHapticPattern
         guard let jsonData = data.data(using: .utf8),
@@ -64,7 +72,10 @@ class HapticEngineManager: NSObject {
 
         do {
             let pattern = try CHHapticPattern(dictionary: patternDict)
-            self.patternPlayer = try engine.makePlayer(with: pattern)
+            let player = try engine.makePlayer(with: pattern)
+            patternPlayers[key] = player
+            patternData[key] = patternDict
+            currentPatternKey = key
             result(nil) // Success case, return nil (indicating success)
         } catch {
             result(FlutterError(code: "player_creation_failed", message: "Failed to create haptic player", details: error.localizedDescription))
@@ -72,9 +83,10 @@ class HapticEngineManager: NSObject {
     }
 
     // Play the cached haptic pattern
-    func playPattern(result: @escaping FlutterResult) {
-        guard let player = self.patternPlayer else {
-            result(FlutterError(code: "player_not_initialized", message: "Haptic player is not initialized", details: nil))
+    func playPattern(patternKey: String?, result: @escaping FlutterResult) {
+        let key = patternKey ?? currentPatternKey
+        guard let player = patternPlayers[key] else {
+            result(FlutterError(code: "player_not_initialized", message: "Haptic player not found for key: \(key)", details: nil))
             return
         }
         
@@ -86,13 +98,24 @@ class HapticEngineManager: NSObject {
         }
     }
 
+    // Recreate all pattern players after engine restart
+    private func recreatePatternPlayers() {
+        for (key, patternDict) in patternData {
+            do {
+                let pattern = try CHHapticPattern(dictionary: patternDict)
+                patternPlayers[key] = try engine?.makePlayer(with: pattern)
+            } catch {
+                print("Failed to recreate pattern player for key \(key): \(error.localizedDescription)")
+            }
+        }
+    }
+
     // Handle engine interruptions
     private func installEngineRestartHandler() {
         engine?.resetHandler = { [weak self] in
             do {
                 try self?.engine?.start()
-                // Recreate the player, but we cannot reuse the old pattern directly
-                // So ensure you recreate the pattern before this gets called again
+                self?.recreatePatternPlayers()
             } catch {
                 print("Failed to restart haptic engine: \(error.localizedDescription)")
             }

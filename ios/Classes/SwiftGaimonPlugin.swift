@@ -31,7 +31,8 @@ public class SwiftGaimonPlugin: NSObject, FlutterPlugin {
             if #available(iOS 13.0, *) {
                 if let args = call.arguments as? [String: Any],
                    let data = args["data"] as? String {
-                    hapticManager.createPlayer(data: data, result: result)
+                    let patternKey = args["patternKey"] as? String
+                    hapticManager.createPlayer(data: data, patternKey: patternKey, result: result)
                 } else {
                     result(FlutterError(code: "bad_args", message: "Invalid arguments", details: nil))
                 }
@@ -40,7 +41,12 @@ public class SwiftGaimonPlugin: NSObject, FlutterPlugin {
             }
         case "playPattern":
             if #available(iOS 13.0, *) {
-                hapticManager.playPattern(result: result)
+                if let args = call.arguments as? [String: Any] {
+                    let patternKey = args["patternKey"] as? String
+                    hapticManager.playPattern(patternKey: patternKey, result: result)
+                } else {
+                    hapticManager.playPattern(patternKey: nil, result: result)
+                }
             } else {
                 result(FlutterError(code: "unsupported_version", message: "iOS version not supported", details: nil))
             }
